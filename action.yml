@@ -21,6 +21,7 @@ runs:
         TICKET_PREFIX: ${{ inputs.ticket-prefix }}
       run: |
         echo "PR title: $PR_TITLE"
+        echo "Allowed prefixes: $TICKET_PREFIX"
 
         # Functions for colored output
         print_red() { 
@@ -31,10 +32,10 @@ runs:
           echo -e "\033[32m$1\033[0m" 
         }
 
-        #  Loop through each prefix in the comma-separated list
+        # Loop through each prefix in the comma-separated list
         for CURRENT_PREFIX in ${TICKET_PREFIX//,/ }; do
-          # Escape special regex characters in TICKET_PREFIX
-          ESCAPED_TICKET_PREFIX=$(printf '%q' "$CURRENT_PREFIX")
+          # Use the raw prefix directly (no printf '%q')
+          ESCAPED_TICKET_PREFIX="$CURRENT_PREFIX"
 
           # Define regex patterns
           TICKET_REGEX="^\[((${ESCAPED_TICKET_PREFIX}-[0-9]+)(,[[:space:]]*${ESCAPED_TICKET_PREFIX}-[0-9]+)*)\]"
@@ -43,24 +44,25 @@ runs:
           echo ""
           echo "Running check for prefix: $ESCAPED_TICKET_PREFIX"
           if [[ $PR_TITLE =~ $TICKET_REGEX ]] || [[ $PR_TITLE =~ $NO_TICKET_REGEX ]]; then
-            ## When we find a valid prefix, we can break out of the script
             print_green "✅ PR title is valid."
             exit 0
-          else
-
-            print_red "❌ PR title is invalid."
-            echo ""
-            print_red "### Expected PR Title Format:"
-            print_red "- The PR title must start with either [${CURRENT_PREFIX}-<number>], multiple ticket IDs like [${CURRENT_PREFIX}-<number>, ${CURRENT_PREFIX}-<number>], or [NO-TICKET]."
-            echo ""
-            print_red "### Examples:"
-            print_red "- [${CURRENT_PREFIX}-123] Add new authentication method"
-            print_red "- [${CURRENT_PREFIX}-123, ${CURRENT_PREFIX}-456] Implement new features"
-            print_red "- [NO-TICKET] Fix typo in documentation"
-            echo ""
-            print_red "Please update your PR title to match the required format."
           fi
         done
+
+        # If we get here, no prefix matched
+        print_red "❌ PR title is invalid."
+        echo ""
+        print_red "### Expected PR Title Format:"
+        print_red "- The PR title must start with either [<PREFIX>-<number>],"
+        print_red "  multiple ticket IDs like [<PREFIX>-<number>, <PREFIX>-<number>],"
+        print_red "  or [NO-TICKET]."
+        echo ""
+        print_red "### Examples (assuming prefix LAU):"
+        print_red "- [LAU-123] Add new authentication method"
+        print_red "- [LAU-123, LAU-456] Implement new features"
+        print_red "- [NO-TICKET] Fix typo in documentation"
+        echo ""
+        print_red "Please update your PR title to match the required format."
 
         # Add error message to GitHub Actions logs
         echo "::error title=Invalid PR Title::The provided PR title is invalid, check the logs for more information on the possible values."
